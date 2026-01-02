@@ -9,6 +9,7 @@
 
 #ifndef _BMX280_DEFAULT_H_
 #define _BMX280_DEFAULT_H_
+
 #ifndef _BMX280_H_
 #error Never include "bmx280_bits.h" by itself. Remove this reference and use "bmx280.h" instead.
 #endif
