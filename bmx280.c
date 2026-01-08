@@ -304,12 +304,6 @@ static esp_err_t bmx280_probe(bmx280_t *bmx280, bool address_hi)
 #endif
 }
 
-static esp_err_t bmx280_reset(bmx280_t *bmx280)
-{
-  const static uint8_t din[] = {BMX280_RESET_VEC};
-  return bmx280_write(bmx280, BMX280_REG_RESET, din, sizeof din);
-}
-
 static esp_err_t bmx280_calibrate(bmx280_t *bmx280)
 {
   // Honestly, the best course of action is to read the high and low banks
@@ -624,17 +618,13 @@ esp_err_t bmx280_readout(bmx280_t *bmx280)
   if ((error = bmx280_read(bmx280, BMX280_REG_TEMP_MSB, buffer, 3)) != ESP_OK)
     return error;
 
-        *temperature = BME280_compensate_T_int32(bmx280,
-                        (buffer[0] << 12) | (buffer[1] << 4) | (buffer[0] >> 4)
-                    );
-    }
+  int32_t temperature = BME280_compensate_T_int32(
+      bmx280, (buffer[0] << 12) | (buffer[1] << 4) | (buffer[0] >> 4));
 
   bmx280->values.temperature = (float)temperature * 0.01;
 
-        *pressure = BME280_compensate_P_int64(bmx280, 
-                        (buffer[0] << 12) | (buffer[1] << 4) | (buffer[0] >> 4)
-                    );
-    }
+  if ((error = bmx280_read(bmx280, BMX280_REG_PRES_MSB, buffer, 3)) != ESP_OK)
+    return error;
 
   uint32_t pressure = BME280_compensate_P_int64(
       bmx280, (buffer[0] << 12) | (buffer[1] << 4) | (buffer[0] >> 4));
