@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char *BMX280_TAG = "BMX280";
+static const char *TAG = "BMX280";
 
 // [BME280] Register address of humidity least significant byte.
 #define BMX280_REG_HUMI_LSB 0xFE
@@ -106,34 +106,42 @@ static const char *BMX280_TAG = "BMX280";
  */
 static esp_err_t bmx280_device_create(bmx280_t *bmx280, const uint16_t dev_addr)
 {
-  ESP_LOGI(BMX280_TAG, "device_create for BMP280/BME280 sensors on ADDR %X", dev_addr);
+  ESP_LOGI(TAG, "device_create for BMP280/BME280 sensors on ADDR %X", dev_addr);
   bmx280->dev_cfg.device_address = dev_addr;
   // Add device to the I2C bus
   esp_err_t err = i2c_master_bus_add_device(bmx280->bus_handle, &bmx280->dev_cfg, &bmx280->i2c_dev);
   if (err == ESP_OK) {
-    ESP_LOGI(BMX280_TAG, "device_create success on 0x%x", dev_addr);
+    ESP_LOGI(TAG, "device_create success on 0x%x", dev_addr);
     return err;
   } else {
-    ESP_LOGE(BMX280_TAG, "device_create error on 0x%x", dev_addr);
+    ESP_LOGE(TAG, "device_create error on 0x%x", dev_addr);
     return err;
   }
 }
 
-esp_err_t bmx280_init(bmx280_t **bmx280, i2c_master_bus_handle_t bus_handle, bool address_hi)
+esp_err_t bmx280_init(bmx280_t **bmx280_ptr, i2c_master_bus_handle_t bus_handle, bool address_hi)
 {
-  bmx280_config_t bmx_cfg = BMX280_DEFAULT_CONFIG;
+    esp_err_t err;
 
-  ESP_LOGI(BMX280_TAG, "Initialize BMX280");
-  *bmx280 = bmx280_create_master(bus_handle);
-  if (!*bmx280) {
-    ESP_LOGE(BMX280_TAG, "Could not create BMX280 driver.");
-    return ESP_FAIL;
-  }
-  ESP_ERROR_CHECK(bmx280_device_init(*bmx280, address_hi));
-  ESP_ERROR_CHECK(bmx280_configure(*bmx280, &bmx_cfg));
-  ESP_ERROR_CHECK(bmx280_setMode(*bmx280, BMX280_MODE_CYCLE));
-  ESP_LOGI(BMX280_TAG, "BMX280 initialized");
-  return ESP_OK;
+    ESP_LOGI(TAG, "Initialize BMX280");
+    bmx280_t *bmx280 = bmx280_create_master(bus_handle);
+    if (bmx280 == NULL) {
+        ESP_LOGE(TAG, "Could not create BMX280 driver.");
+        return ESP_FAIL;
+    }
+    bmx280_config_t *config = &bmx280->config;
+    // Configure for weather mode
+    config->p_sampling = BMX280_PRESSURE_OVERSAMPLING_X1;
+    config->h_sampling = BMX280_HUMIDITY_OVERSAMPLING_X1;
+    config->t_sampling = BMX280_TEMPERATURE_OVERSAMPLING_X1;
+    config->iir_filter = BMX280_IIR_NONE;
+    config->t_standby = BMX280_STANDBY_1000M;
+    if ((err = bmx280_device_init(bmx280, address_hi)) != ESP_OK) return err;
+    if ((err = bmx280_configure(bmx280, config)) != ESP_OK) return err;
+    if ((err = bmx280_setMode(bmx280, BMX280_MODE_CYCLE)) != ESP_OK) return err;
+    ESP_LOGI(TAG, "BMX280 initialized");
+    *bmx280_ptr = bmx280;
+    return ESP_OK;
 }
 
 #endif
@@ -224,7 +232,7 @@ static esp_err_t bmx280_probe_address(bmx280_t *bmx280)
 #endif
     ) {
 #if CONFIG_USE_I2C_MASTER_DRIVER
-      ESP_LOGI(BMX280_TAG, "Probe success: address=%hx, id=%hhx",
+      ESP_LOGI(TAG, "Probe success: address=%hx, id=%hhx",
                bmx280->dev_cfg.device_address, bmx280->device_id);
 #else
       ESP_LOGI(BMX280_TAG, "Probe success: address=%hx, id=%hhx", bmx280->slave,
@@ -232,14 +240,14 @@ static esp_err_t bmx280_probe_address(bmx280_t *bmx280)
 #endif
       return ESP_OK;
     } else {
-      ESP_LOGE(BMX280_TAG,
+      ESP_LOGE(TAG,
                "Sensor model may be incorrect. Please check the sensor model "
                "configuration. If unsure, set it to AUTO.");
       err = ESP_ERR_NOT_FOUND;
     }
   }
 #if CONFIG_USE_I2C_MASTER_DRIVER
-  ESP_LOGW(BMX280_TAG, "Probe failure: address=%hx, id=%hhx, reason=%s",
+  ESP_LOGW(TAG, "Probe failure: address=%hx, id=%hhx, reason=%s",
            bmx280->dev_cfg.device_address, bmx280->device_id,
            esp_err_to_name(err));
 #else
@@ -284,14 +292,14 @@ static esp_err_t bmx280_probe(bmx280_t *bmx280, bool address_hi)
   return err;
 #endif
 #else
-  ESP_LOGI(BMX280_TAG, "Probing for BMP280/BME280 sensor on I2C at 0x%2X", address);
+  ESP_LOGI(TAG, "Probing for BMP280/BME280 sensor on I2C at 0x%2X", address);
   if ((err = bmx280_device_create(bmx280, address)) != ESP_OK) return err;
   if ((err = bmx280_probe_address(bmx280)) != ESP_OK) {
-    ESP_LOGE(BMX280_TAG, "Sensor not found at 0x%2X!", address);
+    ESP_LOGE(TAG, "Sensor not found at 0x%2X!", address);
     return err;
   }
   bmx280->address = address;
-  ESP_LOGI(BMX280_TAG, "Sensor found at 0x%2X!", address);
+  ESP_LOGI(TAG, "Sensor found at 0x%2X!", address);
   return ESP_OK;
 #endif
 }
@@ -311,14 +319,14 @@ static esp_err_t bmx280_calibrate(bmx280_t *bmx280)
   //
   // Write and pray to optimizations is my new motto.
 
-  ESP_LOGI(BMX280_TAG, "Reading out calibration values...");
+  ESP_LOGI(TAG, "Reading out calibration values...");
 
   esp_err_t err;
   uint8_t buf[26];
 
   // Low Bank
   if ((err = bmx280_read(bmx280, BMX280_REG_CAL_LO, buf, sizeof buf)) != ESP_OK) return err;
-  ESP_LOGI(BMX280_TAG, "Read Low Bank.");
+  ESP_LOGI(TAG, "Read Low Bank.");
   bmx280->cmps.T1 = buf[0] | (buf[1] << 8);
   bmx280->cmps.T2 = buf[2] | (buf[3] << 8);
   bmx280->cmps.T3 = buf[4] | (buf[5] << 8);
@@ -341,7 +349,7 @@ static esp_err_t bmx280_calibrate(bmx280_t *bmx280)
     // First get H1 out of the way.
     bmx280->cmps.H1 = buf[23];
     if ((err = bmx280_read(bmx280, BMX280_REG_CAL_HI, buf, 7)) != ESP_OK) return err;
-    ESP_LOGI(BMX280_TAG, "Read High Bank.");
+    ESP_LOGI(TAG, "Read High Bank.");
     bmx280->cmps.H2 = buf[0] | (buf[1] << 8);
     bmx280->cmps.H3 = buf[2];
     bmx280->cmps.H4 = (buf[3] << 4) | (buf[4] & 0x0F);
@@ -356,7 +364,7 @@ static esp_err_t bmx280_calibrate(bmx280_t *bmx280)
 
 #if !(CONFIG_USE_I2C_MASTER_DRIVER)
 bmx280_t *bmx280_create_legacy(i2c_port_t port) {
-  bmx280_t *bmx280 = malloc(sizeof(bmx280_t));
+  bmx280_t *bmx280 = pvPortMalloc(sizeof(bmx280_t));
   if (bmx280) {
     memset(bmx280, 0, sizeof(bmx280_t));
     bmx280->i2c_port = port;
@@ -372,7 +380,7 @@ bmx280_t *bmx280_create_legacy(i2c_port_t port) {
 #else
 bmx280_t *bmx280_create_master(i2c_master_bus_handle_t bus_handle)
 {
-  bmx280_t *bmx280 = malloc(sizeof(bmx280_t));
+  bmx280_t *bmx280 = pvPortMalloc(sizeof(bmx280_t));
 
   if (bmx280) {
     memset(bmx280, 0, sizeof(bmx280_t));
@@ -384,7 +392,7 @@ bmx280_t *bmx280_create_master(i2c_master_bus_handle_t bus_handle)
     bmx280->address = 0;
     bmx280->device_id = 0xAD;
   } else {
-    ESP_LOGE(BMX280_TAG, "Failed to allocate memory for bmx280.");
+    ESP_LOGE(TAG, "Failed to allocate memory for bmx280.");
     bmx280_close(bmx280);
     return NULL;
   }
@@ -404,7 +412,7 @@ void bmx280_close(bmx280_t *bmx280)
   if (bmx280 != NULL && bmx280->i2c_dev != NULL)
     i2c_master_bus_rm_device(bmx280->i2c_dev);
 #endif
-  free(bmx280);
+  vPortFree(bmx280);
 }
 
 esp_err_t bmx280_device_init(bmx280_t *bmx280, bool address_hi)
@@ -421,8 +429,8 @@ esp_err_t bmx280_device_init(bmx280_t *bmx280, bool address_hi)
     // Read calibration data.
     bmx280_calibrate(bmx280);
 
-    ESP_LOGI(BMX280_TAG, "Dumping calibration...");
-    ESP_LOG_BUFFER_HEX(BMX280_TAG, &bmx280->cmps, sizeof(bmx280->cmps));
+    ESP_LOGI(TAG, "Dumping calibration...");
+    ESP_LOG_BUFFER_HEX(TAG, &bmx280->cmps, sizeof(bmx280->cmps));
   }
 
   return error;
@@ -661,12 +669,22 @@ esp_err_t bmx280_readout(bmx280_t *bmx280)
   return ESP_OK;
 }
 
-void bmx280_dump(bmx280_t *sensor)
+void bmx280_dump_info(bmx280_t *sensor)
 {
-    bmx280_values_t *values = &sensor->values;
+    bmx280_config_t *config = &sensor->config;
 
-    if (sensor->debug & 1) {
-        ESP_LOGI(BMX280_TAG, "addr=%2X temp=%.1f °C  hum=%.1f  press=%.1f hPa  altitude=%.1f m",
+    ESP_LOGI(TAG, "addr=%02X  devid=%02X  mode=%d  sampling=%d",
+        sensor->address, sensor->device_id, sensor->mode, bmx280_isSampling(sensor));
+    ESP_LOGI(TAG, "pOvs=%d  tOvs=%d  hOvs=%d  flt=%d  stdBy=%d",
+            config->p_sampling, config->t_sampling, config->h_sampling, config->iir_filter, config->t_standby);
+}
+
+void bmx280_dump_values(bmx280_t *sensor, bool force)
+{
+    if (force || sensor->debug & 1) {
+        bmx280_values_t *values = &sensor->values;
+
+        ESP_LOGI(TAG, "addr=%2X temp=%.1f °C  hum=%.1f  press=%.1f hPa  altitude=%.1f m",
                  sensor->address, values->temperature, values->humidity, values->pressure, values->altitude);
     }
 }

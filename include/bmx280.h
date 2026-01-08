@@ -30,7 +30,7 @@ extern "C" {
 
 #define BMXAPI extern
 
-typedef struct {
+typedef struct __attribute__((packed)) bmx280_values_s {
   float temperature; // °C
   float humidity;    // %
   float pressure;    // hPa
@@ -83,6 +83,7 @@ typedef struct bmx280_s {
   // Storage for a variable proportional to temperature.
   int32_t t_fine;
   bmx280_mode_t mode;
+  bmx280_config_t config;
   bmx280_values_t values;
   uint8_t debug;
 } bmx280_t;
@@ -166,7 +167,9 @@ BMXAPI bool bmx280_isSampling(bmx280_t *bmx280);
  */
 BMXAPI esp_err_t bmx280_readout(bmx280_t *bmx280);
 
-void bmx280_dump(bmx280_t *sensor);
+void bmx280_dump_info(bmx280_t *sensor);
+
+void bmx280_dump_values(bmx280_t *sensor, bool force);
 
 #ifdef __cplusplus
 };
