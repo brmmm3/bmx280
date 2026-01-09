@@ -235,7 +235,7 @@ static esp_err_t bmx280_probe_address(bmx280_t *bmx280)
       ESP_LOGI(TAG, "Probe success: address=%hx, id=%hhx",
                bmx280->dev_cfg.device_address, bmx280->device_id);
 #else
-      ESP_LOGI(BMX280_TAG, "Probe success: address=%hx, id=%hhx", bmx280->slave,
+      ESP_LOGI(TAG, "Probe success: address=%hx, id=%hhx", bmx280->slave,
                bmx280->device_id);
 #endif
       return ESP_OK;
@@ -251,7 +251,7 @@ static esp_err_t bmx280_probe_address(bmx280_t *bmx280)
            bmx280->dev_cfg.device_address, bmx280->device_id,
            esp_err_to_name(err));
 #else
-  ESP_LOGW(BMX280_TAG, "Probe failure: address=%hhx, id=%hhx, reason=%s",
+  ESP_LOGW(TAG, "Probe failure: address=%hhx, id=%hhx, reason=%s",
            bmx280->slave, bmx280->device_id, esp_err_to_name(err));
 #endif
   return err;
@@ -263,20 +263,20 @@ static esp_err_t bmx280_probe(bmx280_t *bmx280, bool address_hi)
   uint8_t address = address_hi ? 0x77 : 0x76;
 
 #if !(CONFIG_USE_I2C_MASTER_DRIVER)
-  ESP_LOGI(BMX280_TAG, "Probing for BMP280/BME280 sensors on I2C %d",
+  ESP_LOGI(TAG, "Probing for BMP280/BME280 sensors on I2C %d",
            bmx280->i2c_port);
 #if CONFIG_BMX280_ADDRESS_HI
   bmx280->slave = 0xEE;
   err = bmx280_probe_address(bmx280);
   if (err != ESP_OK)
-    ESP_LOGE(BMX280_TAG,
+    ESP_LOGE(TAG,
              "Sensor not found at 0x77 , Please check the address.");
   return err;
 #elif CONFIG_BMX280_ADDRESS_LO
   bmx280->slave = 0xEC;
   err = bmx280_probe_address(bmx280);
   if (err != ESP_OK)
-    ESP_LOGE(BMX280_TAG,
+    ESP_LOGE(TAG,
              "Sensor not found at 0x76 , Please check the address.");
   return err;
 #else
@@ -284,7 +284,7 @@ static esp_err_t bmx280_probe(bmx280_t *bmx280, bool address_hi)
   if ((err = bmx280_probe_address(bmx280)) != ESP_OK) {
     bmx280->slave = 0xEE;
     if ((err = bmx280_probe_address(bmx280)) != ESP_OK) {
-      ESP_LOGE(BMX280_TAG, "Sensor not found.");
+      ESP_LOGE(TAG, "Sensor not found.");
       bmx280->slave = 0xDE;
       bmx280->device_id = 0xAD;
     }
@@ -365,7 +365,7 @@ bmx280_t *bmx280_create_legacy(i2c_port_t port) {
     bmx280->slave = 0xDE;
     bmx280->device_id = 0xAD;
   } else {
-    ESP_LOGE(BMX280_TAG, "Failed to allocate memory for bmx280.");
+    ESP_LOGE(TAG, "Failed to allocate memory for bmx280.");
     bmx280_close(bmx280);
     return NULL;
   }
