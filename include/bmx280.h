@@ -30,7 +30,7 @@ extern "C" {
 
 #define BMXAPI extern
 
-typedef struct __attribute__((packed)) bmx280_values_s {
+typedef struct __attribute__((packed)) {
   float temperature; // °C
   float humidity;    // %
   float pressure;    // hPa
